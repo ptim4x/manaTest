@@ -1,0 +1,8 @@
+App\Entity\Equipment:
+  equipment{1..10}:
+    name: equipt<current()>
+    category: categy<current()>
+    number: <numberBetween(100, 10000)>
+    description: tadada
+    createdAt: <identity(new \DateTimeImmutable('2019-09-16'))>
+    updatedAt: <identity(new \DateTimeImmutable('2020-09-16'))>
