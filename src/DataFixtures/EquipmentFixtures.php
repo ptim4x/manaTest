@@ -17,7 +17,7 @@ class EquipmentFixtures extends Fixture
             $equipment = (new Equipment())
                 ->setName('Equip '.$i)
                 ->setCategory('Categ '.$i)
-                ->setNumber(str_pad(random_int(1000, 100000), 6, '0', STR_PAD_LEFT))
+                ->setNumber(str_pad((string) random_int(1000, 100000), 6, '0', STR_PAD_LEFT))
                 ->setDescription('tadata')
                 ->setCreatedAt(new DateTimeImmutable())
                 ->setUpdatedAt(new DateTimeImmutable())
