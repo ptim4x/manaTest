@@ -22,3 +22,7 @@
 ###> node ###
 /node_modules/
 ###< node ###
+
+###> docker log ###
+/docker/*/log/
+###< docker log ###

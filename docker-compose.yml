@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+
+    db:
+        container_name: mana_db
+        image: mysql:5.7
+        restart: always
+        environment:
+            MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+            MYSQL_ROOT_HOST: '%'
+            MYSQL_DATABASE: manatest
+
+    phpmyadmin:
+        container_name: mana_phpmyadmin
+        image: phpmyadmin/phpmyadmin
+        restart: always
+        depends_on:
+            - db
+        environment:
+            PMA_HOST: db
+            PMA_USER: root
+            PMA_PASSWORD: ''
+        labels:
+            - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.traefik.me`)"
+            - "traefik.http.routers.phpmyadmin-tls.tls.domains[0].main=phpmyadmin.traefik.me"
+            - "traefik.http.routers.phpmyadmin-tls.tls.domains[0].sans=phpmyadmin-*.traefik.me"
+            - "traefik.http.routers.phpmyadmin.tls=true"
+
+    php:
+        container_name: mana_php
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+        depends_on:
+            - db
+        environment:
+            - APP_ENV=${APP_ENV}
+            - APP_SECRET=${APP_SECRET}
+            - DATABASE_URL=${DATABASE_URL}
+        volumes:
+            - ./:/var/www
+
+    nginx:
+        container_name: mana_nginx
+        build:
+            context: ./docker/nginx
+        volumes:
+            - ./:/var/www
+            - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+            - ./docker/nginx/sites/:/etc/nginx/sites-available
+            - ./docker/nginx/conf.d/:/etc/nginx/conf.d
+            - ./docker/nginx/log/:/var/log/nginx
+        depends_on:
+            - php
+        labels:
+            - "traefik.http.routers.manatest.rule=Host(`manatest.traefik.me`)"
+            - "traefik.http.routers.manatest-tls.tls.domains[0].main=manatest.traefik.me"
+            - "traefik.http.routers.manatest-tls.tls.domains[0].sans=manatest-*.traefik.me"
+            - "traefik.http.routers.manatest.tls=true"
+
+    traefik:
+        container_name: mana_traefik
+        image: traefik:v2.1.2
+        command:
+            - --entrypoints.web.address=:80
+            - --entrypoints.websecure.address=:443
+            - --providers.docker=true
+        ports:
+            - 80:80
+            - 443:443
+        labels:
+            - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
+            - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
+            - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
+            - traefik.http.routers.http_catchall.entrypoints=http
+            - traefik.http.routers.http_catchall.middlewares=https_redirect
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml
+            - ./docker/traefik/tls.yml:/etc/traefik/tls.yml
+            - certs:/etc/ssl/traefik
+
+    reverse-proxy-https-helper:
+        container_name: mana_https_helper
+        image: alpine
+        command: sh -c "cd /etc/ssl/traefik
+            && wget traefik.me/cert.pem -O cert.pem
+            && wget traefik.me/privkey.pem -O privkey.pem"
+        volumes:
+            - certs:/etc/ssl/traefik
+
+volumes:
+    certs:
